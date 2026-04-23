@@ -1,216 +1,105 @@
 <?php
+// CONEXÃO (COLOQUE SUA STRING DO NEON)
+$pdo = new PDO("SUA_CONEXAO_AQUI");
+
+// VARIÁVEIS
 $nome = "";
 $email = "";
 $telefone = "";
-$mensagem = "";
-$tipoMensagem = "";
 
-$db_url = getenv("DATABASE_URL");
-
-if (!$db_url) {
-    die("Erro: variável DATABASE_URL não encontrada.");
+// EXCLUIR
+if (isset($_GET['delete'])) {
+    $stmt = $pdo->prepare("DELETE FROM usuarios WHERE id=?");
+    $stmt->execute([$_GET['delete']]);
 }
 
-$conn = pg_connect($db_url);
+// EDITAR (carregar dados)
+if (isset($_GET['edit'])) {
+    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE id=?");
+    $stmt->execute([$_GET['edit']]);
+    $user = $stmt->fetch();
 
-if (!$conn) {
-    die("Erro ao conectar no banco de dados.");
+    $nome = $user['nome'];
+    $email = $user['email'];
+    $telefone = $user['telefone'];
 }
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $nome = trim($_POST["nome"] ?? "");
-    $email = trim($_POST["email"] ?? "");
-    $telefone = trim($_POST["telefone"] ?? "");
+// INSERIR ou ATUALIZAR
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    if ($nome === "" || $email === "" || $telefone === "") {
-        $mensagem = "Preencha todos os campos.";
-        $tipoMensagem = "erro";
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $mensagem = "Digite um e-mail válido.";
-        $tipoMensagem = "erro";
+    $nome = $_POST['nome'];
+    $email = $_POST['email'];
+    $telefone = $_POST['telefone'];
+
+    if (!empty($_POST['id'])) {
+        // UPDATE
+        $stmt = $pdo->prepare("UPDATE usuarios SET nome=?, email=?, telefone=? WHERE id=?");
+        $stmt->execute([$nome, $email, $telefone, $_POST['id']]);
     } else {
-        $query = "INSERT INTO usuarios (nome, email, telefone) VALUES ($1, $2, $3)";
-        $result = pg_query_params($conn, $query, [$nome, $email, $telefone]);
-
-        if ($result) {
-            $mensagem = "Usuário cadastrado com sucesso no banco de dados.";
-            $tipoMensagem = "sucesso";
-
-            $nome = "";
-            $email = "";
-            $telefone = "";
-        } else {
-            $mensagem = "Erro ao salvar no banco de dados.";
-            $tipoMensagem = "erro";
-        }
+        // INSERT
+        $stmt = $pdo->prepare("INSERT INTO usuarios (nome, email, telefone) VALUES (?, ?, ?)");
+        $stmt->execute([$nome, $email, $telefone]);
     }
 }
 
-$queryLista = "SELECT id, nome, email, telefone FROM usuarios ORDER BY id DESC";
-$resultLista = pg_query($conn, $queryLista);
+// LISTAR
+$stmt = $pdo->query("SELECT * FROM usuarios ORDER BY id DESC");
+$usuarios = $stmt->fetchAll();
 ?>
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sistema Web II - Cadastro de Usuário</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 900px;
-      margin: 30px auto;
-      padding: 20px;
-      background: #f4f6f8;
-      color: #222;
-    }
-
-    .container {
-      background: #fff;
-      padding: 24px;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-    }
-
-    h1, h2 {
-      margin-top: 0;
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-      max-width: 420px;
-    }
-
-    label {
-      display: block;
-      font-weight: bold;
-      margin-bottom: 6px;
-    }
-
-    input[type="text"],
-    input[type="email"] {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      box-sizing: border-box;
-    }
-
-    button {
-      background: #0d6efd;
-      color: white;
-      border: none;
-      padding: 10px 18px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 15px;
-    }
-
-    button:hover {
-      background: #0b5ed7;
-    }
-
-    .mensagem {
-      margin-top: 20px;
-      padding: 12px;
-      border-radius: 6px;
-      font-weight: bold;
-    }
-
-    .sucesso {
-      background: #d1e7dd;
-      color: #0f5132;
-      border: 1px solid #badbcc;
-    }
-
-    .erro {
-      background: #f8d7da;
-      color: #842029;
-      border: 1px solid #f5c2c7;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-      background: white;
-    }
-
-    table, th, td {
-      border: 1px solid #ddd;
-    }
-
-    th, td {
-      padding: 12px;
-      text-align: left;
-    }
-
-    th {
-      background: #f1f1f1;
-    }
-
-    .sem-registros {
-      margin-top: 15px;
-      color: #666;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Sistema Web II</title>
 </head>
+
 <body>
-  <div class="container">
-    <h1>Cadastro de Usuário</h1>
-    <p>Preencha os dados abaixo.</p>
 
-    <form method="POST" action="">
-      <div class="form-group">
-        <label for="nome">Nome:</label>
-        <input type="text" id="nome" name="nome" required value="<?php echo htmlspecialchars($nome); ?>">
-      </div>
+<h1>Cadastro de Usuário</h1>
 
-      <div class="form-group">
-        <label for="email">E-mail:</label>
-        <input type="email" id="email" name="email" required value="<?php echo htmlspecialchars($email); ?>">
-      </div>
+<form method="POST">
+<input type="hidden" name="id" value="<?php echo $_GET['edit'] ?? ''; ?>">
 
-      <div class="form-group">
-        <label for="telefone">Telefone:</label>
-        <input type="text" id="telefone" name="telefone" required value="<?php echo htmlspecialchars($telefone); ?>">
-      </div>
+<label>Nome:</label><br>
+<input type="text" name="nome" value="<?php echo $nome; ?>" required><br><br>
 
-      <button type="submit">Cadastrar</button>
-    </form>
+<label>Email:</label><br>
+<input type="email" name="email" value="<?php echo $email; ?>" required><br><br>
 
-    <?php if ($mensagem !== ""): ?>
-      <div class="mensagem <?php echo $tipoMensagem; ?>">
-        <?php echo htmlspecialchars($mensagem); ?>
-      </div>
-    <?php endif; ?>
+<label>Telefone:</label><br>
+<input type="text" name="telefone" value="<?php echo $telefone; ?>" required><br><br>
 
-    <h2 style="margin-top: 35px;">Usuários cadastrados</h2>
+<button type="submit">Salvar</button>
+</form>
 
-    <?php if ($resultLista && pg_num_rows($resultLista) > 0): ?>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Nome</th>
-            <th>E-mail</th>
-            <th>Telefone</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php while ($usuario = pg_fetch_assoc($resultLista)): ?>
-            <tr>
-              <td><?php echo htmlspecialchars($usuario["id"]); ?></td>
-              <td><?php echo htmlspecialchars($usuario["nome"]); ?></td>
-              <td><?php echo htmlspecialchars($usuario["email"]); ?></td>
-              <td><?php echo htmlspecialchars($usuario["telefone"]); ?></td>
-            </tr>
-          <?php endwhile; ?>
-        </tbody>
-      </table>
-    <?php else: ?>
-      <p class="sem-registros">Nenhum usuário cadastrado.</p>
-    <?php endif; ?>
-  </div>
+<hr>
+
+<h2>Usuários cadastrados</h2>
+
+<table border="1">
+<tr>
+<td>ID</td>
+<td>Nome</td>
+<td>Email</td>
+<td>Telefone</td>
+<td>Ações</td>
+</tr>
+
+<?php foreach ($usuarios as $u): ?>
+<tr>
+<td><?php echo $u['id']; ?></td>
+<td><?php echo $u['nome']; ?></td>
+<td><?php echo $u['email']; ?></td>
+<td><?php echo $u['telefone']; ?></td>
+<td>
+<a href="?edit=<?php echo $u['id']; ?>">Editar</a> |
+<a href="?delete=<?php echo $u['id']; ?>">Excluir</a>
+</td>
+</tr>
+<?php endforeach; ?>
+
+</table>
+
 </body>
 </html>
