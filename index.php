@@ -1,6 +1,6 @@
 <?php
 // CONEXÃO (COLOQUE SUA STRING DO NEON)
-$pdo = new PDO("SUA_CONEXAO_AQUI");
+$pdo = new PDO("postgresql://neondb_owner:npg_8VAiWXuP4hZn@ep-crimson-base-antmg7mn-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require");
 
 // VARIÁVEIS
 $nome = "";
